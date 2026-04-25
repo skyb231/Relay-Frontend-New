@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+:root {
+  --relay-navy: #1c2d47;
+  --relay-navy-hover: #152238;
+  --relay-page: #f8f9fa;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--relay-page);
+  color: #1e293b;
+  font-family: Inter, "Segoe UI", Roboto, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Subtle horizontal scroll for workforce strip (WebKit + Firefox) */
+.workforce-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+.workforce-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.workforce-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.workforce-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.workforce-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.45);
+}

@@ -1,0 +1,45 @@
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import type { AuthUser } from '@/types/domain'
+import { sessionService } from '@/services/sessionService'
+
+type AuthSessionContextValue = {
+  user: AuthUser | null
+  setUser: (next: AuthUser) => void
+  clearUser: () => void
+}
+
+const AuthSessionContext = createContext<AuthSessionContextValue | null>(null)
+
+export function AuthSessionProvider({ children }: { children: ReactNode }) {
+  const [user, setUserState] = useState<AuthUser | null>(() => sessionService.getCurrentUser())
+
+  const setUser = useCallback((next: AuthUser) => {
+    sessionService.setCurrentUser(next)
+    setUserState(next)
+  }, [])
+
+  const clearUser = useCallback(() => {
+    sessionService.clearCurrentUser()
+    setUserState(null)
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      user,
+      setUser,
+      clearUser,
+    }),
+    [clearUser, setUser, user],
+  )
+
+  return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuthSession() {
+  const ctx = useContext(AuthSessionContext)
+  if (ctx == null) {
+    throw new Error('useAuthSession must be used within AuthSessionProvider.')
+  }
+  return ctx
+}
