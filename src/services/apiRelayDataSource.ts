@@ -24,6 +24,8 @@ type BatonApi = {
   successor_ids?: number[] | null
   baton_status: string
   risk_label?: string | null
+  risk_score?: number | null
+  documentation_completeness?: number | null
   detailed_context: string | null
   implementation_state: string | null
   repo_link: string | null
@@ -129,8 +131,7 @@ function normalizedRiskLabelFromApi(raw: unknown): string {
   const normalized = normalizeText(raw).toLowerCase()
   if (normalized === 'low risk') return 'Low Risk'
   if (normalized === 'medium risk') return 'Medium Risk'
-  if (normalized === 'high risk') return 'High Risk'
-  if (normalized === 'critical risk') return 'Critical Risk'
+  if (normalized === 'high risk' || normalized === 'critical risk') return 'High Risk'
   return 'Medium Risk'
 }
 
@@ -161,102 +162,28 @@ function effectiveBatonColumn(args: {
   return workflow
 }
 
-/** Visual risk level for estimated reconstruction time: green = favorable, amber = medium, red = severe. */
+/** Visual risk level for estimated reconstruction time: green = favorable, orange = medium, red = severe. */
 function reconstructionRiskTone(raw: string | null | undefined): RiskTone {
   const v = normalizeText(raw).toLowerCase()
-  if (!v || v === '—' || v === 'not set' || v === 'n/a' || v === 'unknown') return 'amber'
+  if (!v || v === '—' || v === 'not set' || v === 'n/a' || v === 'unknown') return 'orange'
   if (/\b(week|month|year)s?\b|\b\d+\s*days?\b/i.test(v)) return 'red'
   const range = v.match(/(\d+)\s*[-–]\s*(\d+)/)
   if (range) {
     const hi = Math.max(Number(range[1]), Number(range[2]))
     if (hi <= 4) return 'green'
-    if (hi <= 24) return 'amber'
+    if (hi <= 24) return 'orange'
     return 'red'
   }
   const single = v.match(/^(\d+)\s*h/)
   if (single) {
     const h = Number(single[1])
     if (h <= 4) return 'green'
-    if (h <= 24) return 'amber'
+    if (h <= 24) return 'orange'
     return 'red'
   }
   if (/\b(low|minutes?|quick|short)\b/i.test(v)) return 'green'
   if (/\b(high|long|slow|severe)\b/i.test(v)) return 'red'
-  return 'amber'
-}
-
-/** Detail-only numeric risk breakdown (0–100, higher = worse). */
-function documentationCompletenessPercent(baton: BatonApi): number {
-  let score = 0
-  const desc = normalizeText(baton.description)
-  if (desc.length >= 80) score += 22
-  else if (desc.length > 0) score += Math.min(22, Math.round((desc.length / 80) * 22))
-
-  const ctx = normalizeText(baton.detailed_context)
-  if (ctx.length >= 60) score += 18
-  else if (ctx.length > 0) score += Math.min(18, Math.round((ctx.length / 60) * 18))
-
-  if (hasRelatedSystemsContent(baton)) score += 18
-
-  const deps = normalizeStringArray(baton.dependencies)
-  if (deps.length > 0) score += 12
-
-  const impl = normalizeText(baton.implementation_state)
-  if (impl.length > 0 && impl.toLowerCase() !== 'unknown') score += 8
-
-  const rt = normalizeText(baton.reconstruction_time)
-  if (rt.length > 0 && rt.toLowerCase() !== 'n/a') score += 7
-
-  const tn = normalizeText(baton.troubleshooting_notes)
-  const resources = baton.additional_resources || []
-  const hasRunbook = resources.some((r) =>
-    ['runbook', 'guide', 'architecture_diagram', 'api_docs'].includes((r.type ?? '').toLowerCase()),
-  )
-  if (tn.length > 0 || hasRunbook) score += 5
-
-  return Math.min(100, score)
-}
-
-function operationalRiskFromBaton(baton: BatonApi): { score: number; band: string; label: string; tone: RiskTone } {
-  const docPct = documentationCompletenessPercent(baton)
-  const docGapPoints = Math.round((100 - docPct) * 0.35)
-  const s = normalizeBatonStatus(baton.baton_status)
-  const workflowPoints =
-    s === BATON_STATUS.DONE || s === 'completed' || s === 'complete'
-      ? 5
-      : s === BATON_STATUS.IN_PROGRESS
-        ? 16
-        : s === BATON_STATUS.AWAITING_HANDOVER
-          ? 40
-          : s === BATON_STATUS.ENRICH_TICKET || s === 'enrich'
-            ? 26
-            : s === BATON_STATUS.HANDOVER_PENDING_APPROVAL
-              ? 38
-              : 14
-  const successorPts = normalizeNumericArray(baton.successor_ids).length === 0 ? 24 : 0
-  const reconRaw = baton.reconstruction_time
-  const reconPts =
-    reconRaw == null || reconRaw === '' || !normalizeText(String(reconRaw)) || normalizeText(String(reconRaw)).toLowerCase() === 'n/a'
-      ? 12
-      : reconstructionRiskTone(normalizeText(String(reconRaw))) === 'red'
-        ? 10
-        : reconstructionRiskTone(normalizeText(String(reconRaw))) === 'amber'
-          ? 5
-          : 0
-
-  let score = Math.min(100, docGapPoints + workflowPoints + successorPts + reconPts)
-
-  if (s === BATON_STATUS.DONE || s === 'completed' || s === 'complete') {
-    return { score: 12, band: 'Low', label: 'Low Risk', tone: 'green' }
-  }
-  if (s === BATON_STATUS.AWAITING_HANDOVER || s === BATON_STATUS.HANDOVER_PENDING_APPROVAL) {
-    score = Math.max(score, 78)
-  }
-
-  if (score < 25) return { score, band: 'Low', label: 'Low Risk', tone: 'green' }
-  if (score < 50) return { score, band: 'Medium', label: 'Medium Risk', tone: 'amber' }
-  if (score < 75) return { score, band: 'High', label: 'High Risk', tone: 'red' }
-  return { score, band: 'Critical', label: 'Critical Risk', tone: 'red' }
+  return 'orange'
 }
 
 /**
@@ -322,6 +249,8 @@ type TeamRiskApi = {
   division_name: string
   staff_availability_percentage: number
   unassigned_baton_count: number
+  total_baton_count?: number
+  unassigned_baton_percentage?: number
   delivery_delay_risk: string
   overall_risk_score: number
 }
@@ -612,10 +541,14 @@ function mapBatonDetail(baton: BatonApi): BatonTaskDetail {
   if (!mappedTask) {
     throw new Error('Invalid baton payload from API.')
   }
-  const opRisk = operationalRiskFromBaton(baton)
   const resolvedRiskLabel = normalizedRiskLabelFromApi(baton.risk_label)
   const resolvedRiskTone = toneFromRiskLabel(resolvedRiskLabel)
-  const docPct = documentationCompletenessPercent(baton)
+  const apiRiskScore = typeof baton.risk_score === 'number' && Number.isFinite(baton.risk_score) ? baton.risk_score : null
+  const apiDocPct =
+    typeof baton.documentation_completeness === 'number' && Number.isFinite(baton.documentation_completeness)
+      ? baton.documentation_completeness
+      : null
+  const docPct = Math.max(0, Math.min(100, apiDocPct ?? 0))
   const resources = baton.additional_resources || []
   const dependencyFromResources = resources.filter((item) => (item.type ?? '').toLowerCase() === 'dependency')
   const relatedSystemFromResources = resources.filter((item) => (item.type ?? '').toLowerCase() === 'related_system')
@@ -644,8 +577,8 @@ function mapBatonDetail(baton: BatonApi): BatonTaskDetail {
     status: mappedTask.workflowStatus,
     tone: resolvedRiskTone,
     riskLabel: resolvedRiskLabel,
-    riskScore: opRisk.score,
-    riskBand: opRisk.band,
+    riskScore: apiRiskScore ?? 0,
+    riskBand: resolvedRiskLabel.replace(/\s*Risk$/i, ''),
     created: createdDate,
     updated: updatedDate,
     service: mappedTask.project,
@@ -740,7 +673,8 @@ function handoverReadyPercentFromRiskScore(overallRiskScore: number): string {
 
 function mapTeamRiskRow(row: TeamRiskApi): TeamRisk {
   const staffPct = row.staff_availability_percentage
-  const unassignedPct = Math.min(100, row.unassigned_baton_count * 20)
+  const unassignedPctRaw = Number(row.unassigned_baton_percentage)
+  const unassignedPct = Number.isFinite(unassignedPctRaw) ? Math.max(0, Math.min(100, Math.round(unassignedPctRaw))) : 0
   const delayRisk = (row.delivery_delay_risk ?? 'low').toLowerCase()
 
   return {
@@ -813,7 +747,6 @@ function mapTeamBatonRow(
       ownerStatus,
       successor: '—',
       state: 'Unknown',
-      priority: 'High',
       risk: 'Low Risk',
       docs: 'Missing',
     }
@@ -827,9 +760,7 @@ function mapTeamBatonRow(
     ownerStatus,
     successor: task.successor,
     state: task.workflowStatus,
-    priority: task.tone === 'red' ? 'Critical' : 'High',
     risk:
-      task.risk === 'Critical Risk' ||
       task.risk === 'High Risk' ||
       task.risk === 'Medium Risk' ||
       task.risk === 'Low Risk'
@@ -992,7 +923,7 @@ export const apiRelayDataSource: RelayDataSource = {
       staff,
       metrics: {
         handoverReady: handoverReadyPercentFromRiskScore(risk.overall_risk_score),
-        unassigned: `${Math.min(100, risk.unassigned_baton_count * 20)}%`,
+        unassigned: `${Math.max(0, Math.min(100, Math.round(risk.unassigned_baton_percentage ?? 0)))}%`,
         reconstructionTime: normalizeText(batons.find((b) => b.reconstruction_time)?.reconstruction_time) || '—',
         criticalDelays: riskLabel,
       },

@@ -1,4 +1,4 @@
-export type RiskTone = 'green' | 'amber' | 'red'
+export type RiskTone = 'green' | 'amber' | 'yellow' | 'orange' | 'red'
 
 export type DivisionRisk = {
   division_id: number
@@ -155,8 +155,7 @@ export type TeamDetail = {
     ownerStatus: 'Active' | 'Out'
     successor: string
     state: string
-    priority: 'High' | 'Critical'
-    risk: 'Low Risk' | 'Medium Risk' | 'High Risk' | 'Critical Risk'
+    risk: 'Low Risk' | 'Medium Risk' | 'High Risk'
     docs: 'Missing' | 'Partial' | 'Complete'
   }>
 }

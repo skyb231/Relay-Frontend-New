@@ -5,7 +5,7 @@ type TeamMetricsGridProps = {
   metrics: TeamDetail['metrics']
 }
 
-type Tone = 'green' | 'amber' | 'red' | 'slate'
+type Tone = 'green' | 'yellow' | 'orange' | 'red' | 'slate'
 
 function parsePercent(value: string): number | null {
   const m = value.match(/(\d+(?:\.\d+)?)/)
@@ -18,7 +18,7 @@ function handoverTone(value: string): Tone {
   const n = parsePercent(value)
   if (n == null) return 'slate'
   if (n >= 70) return 'green'
-  if (n >= 40) return 'amber'
+  if (n >= 40) return 'yellow'
   return 'red'
 }
 
@@ -26,42 +26,42 @@ function unassignedTone(value: string): Tone {
   const n = parsePercent(value)
   if (n == null) return 'slate'
   if (n <= 15) return 'green'
-  if (n <= 35) return 'amber'
+  if (n <= 35) return 'yellow'
   return 'red'
 }
 
 function reconstructionTone(value: string): Tone {
   const v = value.trim().toLowerCase()
-  if (!v || v === '—' || v === 'n/a') return 'amber'
+  if (!v || v === '—' || v === 'n/a') return 'orange'
   if (/\b(week|month|year)s?\b|\b\d+\s*days?\b/i.test(v)) return 'red'
   const range = v.match(/(\d+)\s*[-–]\s*(\d+)/)
   if (range) {
     const hi = Math.max(Number(range[1]), Number(range[2]))
     if (hi <= 4) return 'green'
-    if (hi <= 12) return 'amber'
+    if (hi <= 12) return 'orange'
     return 'red'
   }
   const single = v.match(/^(\d+)\s*h/)
   if (single) {
     const h = Number(single[1])
     if (h <= 4) return 'green'
-    if (h <= 12) return 'amber'
+    if (h <= 12) return 'orange'
     return 'red'
   }
-  return 'amber'
+  return 'orange'
 }
 
 function delayLabelTone(value: string): Tone {
   const low = value.trim().toLowerCase()
   if (low === 'low' || low === 'none') return 'green'
-  if (low === 'medium') return 'amber'
-  if (low === 'high') return 'red'
+  if (low === 'medium') return 'yellow'
+  if (low === 'high') return 'orange'
   return 'slate'
 }
 
 function toneToVariant(tone: Tone): InsightVariant {
   if (tone === 'green') return 'success'
-  if (tone === 'amber') return 'warning'
+  if (tone === 'yellow' || tone === 'orange') return 'warning'
   if (tone === 'red') return 'danger'
   return 'neutral'
 }

@@ -109,7 +109,6 @@ export function TeamsAtRiskTable({ teams }: TeamsAtRiskTableProps) {
       <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="border-b border-slate-200 px-4 py-4 sm:px-5">
           <h2 className="text-lg font-semibold tracking-tight text-slate-900">Teams at Risk</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Ranked by highest operational risk</p>
         </div>
         <Table className="rounded-none border-0 shadow-none" headers={dashboardHeaders}>
           {teams.map((team) => (
