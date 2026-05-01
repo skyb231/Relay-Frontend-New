@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { AuthUser } from '@/types/domain'
 import { sessionService } from '@/services/sessionService'
 
@@ -9,6 +9,7 @@ type AuthSessionContextValue = {
 }
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null)
+export { AuthSessionContext }
 
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(() => sessionService.getCurrentUser())
@@ -33,13 +34,4 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuthSession() {
-  const ctx = useContext(AuthSessionContext)
-  if (ctx == null) {
-    throw new Error('useAuthSession must be used within AuthSessionProvider.')
-  }
-  return ctx
 }

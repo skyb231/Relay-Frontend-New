@@ -15,15 +15,12 @@ type BatonColumnBoardProps = {
   tasks: BatonTask[]
   viewMode: BoardViewMode
   showApproveHandoverColumn: boolean
-  /** When set (individual view + person selected), adjusts columns for OOO owner vs first-successor lens. */
   individualLens?: IndividualBoardLens | null
   onAdvanceStatus: (
     task: BatonTask,
     nextStatus: 'in_progress' | 'done' | 'approve_handover' | 'decline_handover',
   ) => Promise<void>
-  /** Whether Mark done / Accept may appear (owner, successor context, or team lead — not resilience manager). */
   showBoardActions: (task: BatonTask) => boolean
-  /** Overrides default Accept modal body (e.g. team lead accepting for a successor). */
   acceptBatonMessage?: string
 }
 

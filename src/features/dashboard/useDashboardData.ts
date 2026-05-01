@@ -10,9 +10,7 @@ function continuityRiskLabel(score: number): string {
 }
 
 type UseDashboardDataOptions = {
-  /** When set (e.g. team lead), only that division’s teams and metrics are shown. */
   lockedDivisionId?: number | null
-  /** When division_id is absent, derive division from this team after teams load. */
   lockedTeamId?: string | null
 }
 

@@ -52,20 +52,13 @@ export type BatonTask = {
   successor: string
   risk: string
   tone: RiskTone
-  /** Raw `baton_status` from the API — board column uses workflow + docs + OOO rules; risk badge uses composite score. */
   apiBatonStatus: string
   age: string
-  /** Column placement on the board (accounts for out-of-office + documentation rules). */
   status: BatonColumnStatus
-  /** Workflow state from `baton_status` before board rules. */
   workflowStatus: BatonColumnStatus
-  /** True when the baton is promoted past “imported” (API `lifecycle_stage` or description+successors heuristic). */
   documentationComplete: boolean
-  /** From `GET /person/{owner_id}`; drives board column when false. */
   ownerInOffice: boolean
-  /** When the owner is out of office, first in-office successor in order (for handover). */
   handoverTargetId: number | null
-  /** API `lifecycle_stage` (`imported_ticket` stays in Enrich until docs + backend promotion). */
   lifecycleStage: string | null
 }
 
@@ -78,16 +71,12 @@ export type BatonTaskDetail = {
   status: string
   tone: RiskTone
   riskLabel: string
-  /** 0–100 composite operational risk (higher = worse). */
   riskScore: number
-  /** Short band aligned with `riskScore` (e.g. Low, Medium, High, Critical). */
   riskBand: string
   created: string
   updated: string
   service: string
-  /** Estimated time to recreate / restore service (from API `reconstruction_time`). */
   reconstructionTime: string
-  /** Human-readable reconstruction estimate for display (e.g. minutes suffix for numeric API values). */
   reconstructionTimeDisplay: string
   ownership: {
     ownerId: number

@@ -2,6 +2,7 @@ import { normalizeRole, type UserRole } from '@/roles'
 import { relayService } from '@/services/relayService'
 import type { BatonTask, TeamRosterMember } from '@/types/domain'
 import { BATON_STATUS } from '../batonStatus'
+import { isAwaitingAcceptFlow } from '../model/status'
 
 type AdvanceStatusAction = 'in_progress' | 'done' | 'approve_handover' | 'decline_handover'
 
@@ -28,6 +29,7 @@ export async function advanceBatonStatus({
   }
 
   if (nextStatus === 'approve_handover') {
+    // Team lead approval releases the baton to the next in-office successor.
     const approvableSuccessorId = task.handoverTargetId ?? task.successorIds[0] ?? null
     if (role !== 'team_lead' || approvableSuccessorId == null) {
       throw new Error('Only team leads can approve handover when a successor is available.')
@@ -37,6 +39,7 @@ export async function advanceBatonStatus({
   }
 
   if (nextStatus === 'decline_handover') {
+    // Decline flow rotates to remaining successors or escalates ownership to team lead.
     const decliningId = userId
     const actingAsSuccessorOnAwaiting =
       !task.ownerInOffice &&
@@ -106,12 +109,8 @@ export async function advanceBatonStatus({
   }
 
   const acceptingSuccessorId = task.handoverTargetId ?? task.successorIds[0] ?? null
-  const isAwaitingAcceptFlow =
-    task.workflowStatus === 'Awaiting Handover' ||
-    task.workflowStatus === 'Waiting to Be Accepted' ||
-    task.status === 'Waiting to Be Accepted'
-
-  if (isAwaitingAcceptFlow) {
+  if (isAwaitingAcceptFlow(task)) {
+    // Accept flow transfers ownership and keeps successor chain intact.
     if (acceptingSuccessorId == null) {
       throw new Error('No successor available to accept this handover.')
     }

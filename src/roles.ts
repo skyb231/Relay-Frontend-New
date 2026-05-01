@@ -1,8 +1,6 @@
 import type { AuthUser, BatonTask, BatonTaskDetail } from './types/domain'
 
 export type UserRole = 'resilience_manager' | 'team_lead' | 'software_engineer' | 'unknown'
-
-/** Normalize DB / UI role strings to a canonical role. */
 export function normalizeRole(role: string | undefined | null): UserRole {
   const r = (role ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
   if (r.includes('resilience') && r.includes('manager')) return 'resilience_manager'
@@ -48,8 +46,6 @@ export function canEditBaton(user: AuthUser | null, detail: BatonTaskDetail): bo
   return false
 }
 
-/** Same rules as edit access for ownership: team lead for team batons, owner for engineer. */
-/** Resilience managers never get board actions; team leads get actions on their team’s batons; engineers only on batons they own or may accept. */
 export function canShowBatonBoardActions(user: AuthUser | null, task: BatonTask): boolean {
   if (!user) return false
   const role = normalizeRole(user.role)

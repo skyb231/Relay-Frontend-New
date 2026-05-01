@@ -8,15 +8,6 @@ import { TeamDetailPage } from '../pages/TeamDetailPage'
 import { RequireAuth, RequireRole } from './RouteGuards'
 import { ROUTES } from './routes'
 
-// eslint-disable-next-line react-refresh/only-export-components
-function AppShell() {
-  return (
-    <PageLayout>
-      <Outlet />
-    </PageLayout>
-  )
-}
-
 export const appRouter = createBrowserRouter([
   { path: '/', element: <Navigate to={ROUTES.login} replace /> },
   { path: ROUTES.login, element: <LoginPage /> },
@@ -24,7 +15,11 @@ export const appRouter = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       {
-        element: <AppShell />,
+        element: (
+          <PageLayout>
+            <Outlet />
+          </PageLayout>
+        ),
         children: [
           {
             element: <RequireRole allowed={['resilience_manager', 'team_lead']} />,

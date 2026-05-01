@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
 const STORAGE_KEY = 'relay.ttsEnabled'
@@ -10,6 +10,7 @@ type TtsContextValue = {
 }
 
 const TtsContext = createContext<TtsContextValue | null>(null)
+export { TtsContext }
 
 function speakText(text: string) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return
@@ -21,9 +22,6 @@ function speakText(text: string) {
   window.speechSynthesis.speak(u)
 }
 
-/**
- * Only visible, user-facing copy — not hidden/skip text, icons (aria-hidden), or structural metadata.
- */
 function getSpeakableTextFromMain(): string {
   const main = document.querySelector('main')
   if (!main) return ''
@@ -61,6 +59,7 @@ function getSpeakableTextFromMain(): string {
 function isTextNodeSpeakable(el: Element, boundary: HTMLElement): boolean {
   let cur: Element | null = el
   while (cur && boundary.contains(cur)) {
+    // Exclude hidden or assistive-only copy so narration matches visible UI.
     if (cur.hasAttribute('data-tts-ignore')) return false
     if (cur.hasAttribute('hidden')) return false
 
@@ -97,7 +96,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, value ? '1' : '0')
     } catch {
-      /* ignore */
+      void STORAGE_KEY
     }
     if (!value && typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
@@ -105,6 +104,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const speakMainContent = useCallback(() => {
+    // Read current page content only when accessibility narration is enabled.
     if (!enabled) return
     const text = getSpeakableTextFromMain()
     speakText(text)
@@ -131,10 +131,3 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
   return <TtsContext.Provider value={value}>{children}</TtsContext.Provider>
 }
 
-/** @see TtsProvider — hook is intentionally co-located with context. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function useTts() {
-  const ctx = useContext(TtsContext)
-  if (!ctx) throw new Error('useTts must be used within TtsProvider')
-  return ctx
-}

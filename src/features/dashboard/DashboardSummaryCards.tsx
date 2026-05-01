@@ -1,21 +1,8 @@
 import { InsightStatCard, type InsightVariant } from '../../components/ui/InsightStatCard'
+import { parseLeadingInt, parsePercent } from '@/shared/lib/riskMetrics'
 
 type DashboardSummaryCardsProps = {
   summaryCards: Array<{ label: string; value: string }>
-}
-
-function parseLeadingInt(value: string): number | null {
-  const m = String(value).trim().match(/^(\d+)/)
-  if (!m) return null
-  const n = Number(m[1])
-  return Number.isFinite(n) ? n : null
-}
-
-function parsePercent(value: string): number | null {
-  const m = value.match(/(\d+(?:\.\d+)?)/)
-  if (!m) return null
-  const n = Number(m[1])
-  return Number.isFinite(n) ? n : null
 }
 
 function metricVariant(label: string, value: string): InsightVariant {

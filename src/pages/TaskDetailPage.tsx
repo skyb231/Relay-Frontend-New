@@ -1,106 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { canEditBaton } from '../roles'
-import { useAuthSession } from '../app/AuthSessionProvider'
+import { useAuthSession } from '../app/useAuthSession'
 import type { BatonDetailLocationState } from '../app/routes'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
 import { FormField } from '../components/ui/FormField'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
+import {
+  buildDailyLogsPatch,
+  buildDocumentationPatch,
+  buildOwnershipPatch,
+  buildResourcesPatch,
+  buildTechnicalPatch,
+  canPromoteFromEnrich,
+  EMPTY_TASK_DETAIL_FORM,
+  formFromTaskDetail,
+  mergeTaskDetailIntoForm,
+  type TaskDetailForm,
+} from '../features/task-detail/model/payloadMappers'
 import { TaskSectionEditorModal } from '../features/task-detail/TaskSectionEditorModal'
 import { TaskDetailView } from '../features/task-detail/TaskDetailView'
+import { useAvailablePeople } from '../features/task-detail/hooks/useAvailablePeople'
 import { relayService } from '../services/relayService'
 import type { BatonTaskDetail } from '../types/domain'
-
-type TaskDetailForm = {
-  title: string
-  reconstructionTime: string
-  description: string
-  context: string
-  implementation: string
-  dependenciesText: string
-  troubleshootingNotes: string
-  ownerId: string
-  successorIds: string[]
-  repoLink: string
-  branchName: string
-  techEnvironment: string
-  relatedSystemsText: string
-  resourcesText: string
-  dailyLogNote: string
-}
-
-const EMPTY_TASK_DETAIL_FORM: TaskDetailForm = {
-  title: '',
-  reconstructionTime: '',
-  description: '',
-  context: '',
-  implementation: '',
-  dependenciesText: '',
-  troubleshootingNotes: '',
-  ownerId: '',
-  successorIds: [],
-  repoLink: '',
-  branchName: '',
-  techEnvironment: '',
-  relatedSystemsText: '',
-  resourcesText: '',
-  dailyLogNote: '',
-}
-
-function resourcesTextFromDetail(detail: BatonTaskDetail): string {
-  return detail.technicalLinks.additionalResources
-    .filter((resource) => {
-      const type = resource.type.toLowerCase()
-      return type !== 'dependency' && type !== 'related_system'
-    })
-    .map((resource) => `${resource.title}${resource.url ? ` | ${resource.url}` : ''}`)
-    .join('\n')
-}
-
-function formFromTaskDetail(detail: BatonTaskDetail): TaskDetailForm {
-  return {
-    title: detail.title,
-    reconstructionTime: detail.reconstructionTime,
-    description: detail.documentation.description,
-    context: detail.documentation.context,
-    implementation: detail.documentation.implementation,
-    dependenciesText: detail.documentation.dependencies.join('\n'),
-    troubleshootingNotes: detail.documentation.troubleshooting === '—' ? '' : detail.documentation.troubleshooting,
-    ownerId: String(detail.ownership.ownerId),
-    successorIds: detail.ownership.successorIds.map(String),
-    repoLink: detail.technicalLinks.repository,
-    branchName: detail.technicalLinks.branch,
-    techEnvironment: detail.technicalLinks.environment,
-    relatedSystemsText: detail.technicalLinks.relatedSystems.join('\n'),
-    resourcesText: resourcesTextFromDetail(detail),
-    dailyLogNote: '',
-  }
-}
-
-function mergeTaskDetailIntoForm(prev: TaskDetailForm, detail: BatonTaskDetail): TaskDetailForm {
-  const next = formFromTaskDetail(detail)
-  return {
-    ...prev,
-    ...next,
-    dailyLogNote: prev.dailyLogNote,
-  }
-}
-
-function canPromoteFromEnrich(detail: BatonTaskDetail, successorIds: number[]): boolean {
-  return (
-    detail.status === 'Enrich Baton' &&
-    successorIds.length > 0 &&
-    detail.documentation.description.trim().length > 0 &&
-    detail.technicalLinks.relatedSystems.length > 0
-  )
-}
-
-function normalizeLogDateOrToday(value: string): string {
-  const trimmed = value.trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-  return new Date().toISOString().slice(0, 10)
-}
 
 export function TaskDetailPage() {
   const { id } = useParams()
@@ -111,8 +34,9 @@ export function TaskDetailPage() {
   const [detail, setDetail] = useState<BatonTaskDetail | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [availablePeople, setAvailablePeople] = useState<Array<{ id: number; name: string; inOffice: boolean }>>([])
   const [saveError, setSaveError] = useState<string | null>(null)
+  const { availablePeople, eligibleSuccessorPeople } = useAvailablePeople(detail?.teamId)
+
   const [saving, setSaving] = useState(false)
   const [ownershipSaveConfirm, setOwnershipSaveConfirm] = useState<{
     ownerId: number
@@ -161,49 +85,6 @@ export function TaskDetailPage() {
   }, [id])
 
   useEffect(() => {
-    if (detail?.teamId == null) return
-    const teamId = detail.teamId
-    let mounted = true
-
-    async function loadTeamPeople() {
-      try {
-        const [teamTasks, roster] = await Promise.all([
-          relayService.getBatonTasks({ teamId }),
-          relayService.getTeamRoster(String(teamId)),
-        ])
-        if (!mounted) return
-
-        const peopleMap = new Map<number, { name: string; inOffice: boolean }>()
-        roster.forEach((member) => {
-          peopleMap.set(member.id, {
-            name: member.name.trim() || `User ${member.id}`,
-            inOffice: member.in_office,
-          })
-        })
-        teamTasks.forEach((task) => {
-          peopleMap.set(task.ownerId, {
-            name: task.owner,
-            inOffice: task.ownerInOffice,
-          })
-        })
-
-        const people = Array.from(peopleMap.entries())
-          .map(([personId, person]) => ({ id: personId, name: person.name, inOffice: person.inOffice }))
-          .sort((a, b) => a.name.localeCompare(b.name))
-        setAvailablePeople(people)
-      } catch {
-        if (!mounted) return
-        setAvailablePeople([])
-      }
-    }
-
-    void loadTeamPeople()
-    return () => {
-      mounted = false
-    }
-  }, [detail?.teamId])
-
-  useEffect(() => {
     if (!detail) return
     setForm(formFromTaskDetail(detail))
     setSaveError(null)
@@ -213,6 +94,25 @@ export function TaskDetailPage() {
     () => (detail == null ? true : !canEditBaton(sessionUser, detail)),
     [detail, sessionUser],
   )
+
+  const ownerFilteredSuccessors = useMemo(() => {
+    const ownerId = Number(form.ownerId)
+    return eligibleSuccessorPeople.filter((person) => person.id !== ownerId)
+  }, [eligibleSuccessorPeople, form.ownerId])
+
+  useEffect(() => {
+    const allowedIds = new Set(ownerFilteredSuccessors.map((person) => String(person.id)))
+    setForm((prev) => {
+      const filtered = prev.successorIds.filter((id) => allowedIds.has(id))
+      if (
+        filtered.length === prev.successorIds.length &&
+        filtered.every((id, index) => id === prev.successorIds[index])
+      ) {
+        return prev
+      }
+      return { ...prev, successorIds: filtered }
+    })
+  }, [ownerFilteredSuccessors])
 
   useEffect(() => {
     openedEditorFromNav.current = false
@@ -280,11 +180,7 @@ export function TaskDetailPage() {
       const shouldMoveToInProgress =
         (ownerChanged && detail.status === 'Approve handover' && (selectedOwner?.inOffice ?? true)) ||
         canPromoteFromEnrich(detail, successorIds)
-      await saveUpdate({
-        owner_id: ownerId,
-        successor_ids: successorIds,
-        ...(shouldMoveToInProgress ? { baton_status: 'in_progress' } : {}),
-      })
+      await saveUpdate(buildOwnershipPatch({ ownerId, successorIds, shouldMoveToInProgress }))
       return
     }
     if (editor === 'reconstruction') {
@@ -292,71 +188,26 @@ export function TaskDetailPage() {
       return
     }
     if (editor === 'documentation') {
-      await saveUpdate({
-        description: form.description,
-        detailed_context: form.context,
-        implementation_state: form.implementation,
-        dependencies: form.dependenciesText
-          .split('\n')
-          .map((item) => item.trim())
-          .filter(Boolean),
-        troubleshooting_notes: form.troubleshootingNotes,
-      })
+      await saveUpdate(buildDocumentationPatch(form))
       return
     }
     if (editor === 'technical') {
-      await saveUpdate({
-        repo_link: form.repoLink,
-        branch_name: form.branchName,
-        implementation_state: form.techEnvironment,
-        related_systems: form.relatedSystemsText
-          .split('\n')
-          .map((item) => item.trim())
-          .filter(Boolean),
-      })
+      await saveUpdate(buildTechnicalPatch(form))
       return
     }
     if (editor === 'resources') {
-      const dependencyResources = detail.technicalLinks.additionalResources.filter(
-        (item) => item.type.toLowerCase() === 'dependency',
-      )
-      const relatedSystems = detail.technicalLinks.additionalResources.filter(
-        (item) => item.type.toLowerCase() === 'related_system',
-      )
-      const resources = form.resourcesText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [titlePart, urlPart] = line.split('|').map((part) => part.trim())
-          return {
-            type: 'resource',
-            title: titlePart || 'Resource',
-            url: urlPart || '',
-          }
-        })
-      await saveUpdate({
-        additional_resources: [...dependencyResources, ...relatedSystems, ...resources],
-      })
+      await saveUpdate(buildResourcesPatch({ form, detail }))
       return
     }
     if (editor === 'dailyLog') {
       if (!form.dailyLogNote.trim()) return
-      const existingLogs = detail.dailyLogs.map((entry) => ({
-        date: normalizeLogDateOrToday(entry.date),
-        note: entry.note,
-        author: entry.author || detail.ownership.currentOwner,
-      }))
-      const saved = await saveUpdate({
-        daily_logs: [
-          ...existingLogs,
-          {
-            date: new Date().toISOString().slice(0, 10),
-            note: form.dailyLogNote,
-            author: sessionUser?.name || detail.ownership.currentOwner,
-          },
-        ],
-      })
+      const saved = await saveUpdate(
+        buildDailyLogsPatch({
+          detail,
+          note: form.dailyLogNote,
+          author: sessionUser?.name || detail.ownership.currentOwner,
+        }),
+      )
       if (saved) {
         setForm((prev) => ({ ...prev, dailyLogNote: '' }))
       }
@@ -455,7 +306,7 @@ export function TaskDetailPage() {
             <FormField label="Successors (ordered)">
               <div className="space-y-3">
                 <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-3">
-                  {availablePeople.map((person) => {
+                  {ownerFilteredSuccessors.map((person) => {
                     const personId = String(person.id)
                     const isSelected = form.successorIds.includes(personId)
                     return (
@@ -606,11 +457,13 @@ export function TaskDetailPage() {
             const shouldMoveToInProgress =
               (detail.status === 'Approve handover' && (selectedOwner?.inOffice ?? true)) ||
               canPromoteFromEnrich(detail, pending.successorIds)
-            void saveUpdate({
-              owner_id: pending.ownerId,
-              successor_ids: pending.successorIds,
-              ...(shouldMoveToInProgress ? { baton_status: 'in_progress' } : {}),
-            })
+            void saveUpdate(
+              buildOwnershipPatch({
+                ownerId: pending.ownerId,
+                successorIds: pending.successorIds,
+                shouldMoveToInProgress,
+              }),
+            )
           }
         }}
       />

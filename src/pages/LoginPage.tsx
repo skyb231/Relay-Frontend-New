@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { normalizeRole, postLoginPath } from '../roles'
-import { useAuthSession } from '../app/AuthSessionProvider'
+import { useAuthSession } from '../app/useAuthSession'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { FormField } from '../components/ui/FormField'

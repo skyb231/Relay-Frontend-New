@@ -1,4 +1,4 @@
-/** Two-letter initials from a display name (e.g. "Ada Lovelace" → "AL"). */
+// Build profile menu initials from display name.
 export function initialsFromName(name: string | undefined | null): string {
   const t = name?.trim()
   if (!t) return 'U'

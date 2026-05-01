@@ -1,4 +1,5 @@
-import { InsightIconTile, insightCardFrameClassName } from '../../components/ui/InsightStatCard'
+import { InsightIconTile } from '../../components/ui/InsightStatCard'
+import { insightCardFrameClassName } from '../../components/ui/insightCardStyles'
 import { cn } from '../../components/ui/cn'
 import { formatWorkforceRole } from './workforceRole'
 

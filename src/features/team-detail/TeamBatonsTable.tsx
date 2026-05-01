@@ -111,7 +111,7 @@ export function TeamBatonsTable({ batons, teamId, preselectedStaff = '', onStaff
             <td className={cell}>
               <Badge
                 tone={
-                  baton.risk === 'Low Risk' ? 'green' : baton.risk === 'Medium Risk' ? 'yellow' : baton.risk === 'High Risk' ? 'orange' : 'red'
+                  baton.risk === 'Low Risk' ? 'green' : baton.risk === 'Medium Risk' ? 'yellow' : baton.risk === 'High Risk' ? 'red' : 'red'
                 }
                 label={baton.risk}
                 className="text-[11px] font-semibold"

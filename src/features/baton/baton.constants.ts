@@ -1,6 +1,5 @@
 import type { BatonTask } from '../../types/domain'
 
-/** Full board when a person is selected on the workforce snapshot. */
 export const INDIVIDUAL_BATON_COLUMNS = [
   'Approve handover',
   'Waiting to Be Accepted',
@@ -10,7 +9,6 @@ export const INDIVIDUAL_BATON_COLUMNS = [
   'Done',
 ] as const
 
-/** Team-wide board: “Waiting” + “Awaiting handover” share one column. */
 export const TEAM_BOARD_COLUMNS = [
   'Approve handover',
   'Awaiting Handover',
@@ -25,21 +23,13 @@ export type BatonColumn = IndividualBatonColumn | TeamBoardColumn
 
 export type BoardViewMode = 'team' | 'individual'
 
-/**
- * Reusable predicate for "show this baton in successor acceptance lens".
- * Keeps workforce filtering and column assignment behavior aligned.
- */
 export function isSuccessorLinkedHandoverTask(task: BatonTask, personId: number): boolean {
   return (
-    (task.workflowStatus === 'Awaiting Handover' ||
-      task.status === 'Waiting to Be Accepted' ||
-      task.workflowStatus === 'Approve handover' ||
-      task.status === 'Approve handover') &&
+    (task.workflowStatus === 'Awaiting Handover' || task.status === 'Waiting to Be Accepted') &&
     (task.handoverTargetId === personId || task.successorIds.some((id) => id === personId))
   )
 }
 
-/** Map effective `task.status` into the column header for the current view. */
 export function columnKeyForBoardView(
   taskStatus: string,
   viewMode: BoardViewMode,
@@ -64,14 +54,8 @@ export function columnKeyForBoardView(
 
 export type IndividualBoardLens = {
   filterPersonId: number
-  /** From roster: false when the selected member is out of office. */
   filterPersonInOffice: boolean
 }
-
-/**
- * Workforce “individual” view: an OOO owner’s batons are grouped under Awaiting Handover;
- * an in-office **first successor** (owner OOO) appears under Waiting to Be Accepted.
- */
 export function columnKeyForIndividualLens(task: BatonTask, lens: IndividualBoardLens): BatonColumn {
   const { filterPersonId, filterPersonInOffice } = lens
 

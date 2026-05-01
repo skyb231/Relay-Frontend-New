@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthSession } from '../../app/AuthSessionProvider'
+import { useAuthSession } from '../../app/useAuthSession'
 import { ROUTES } from '../../app/routes'
-import { useTts } from '../../context/TtsContext'
+import { useTts } from '../../context/useTts'
 import { Select } from '../ui/Select'
 import { initialsFromName } from './profileInitials'
 

@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { normalizeRole, type UserRole } from '@/roles'
-import { useAuthSession } from '@/app/AuthSessionProvider'
+import { useAuthSession } from '@/app/useAuthSession'
 import { ROUTES } from '@/app/routes'
 
 export function RequireAuth() {

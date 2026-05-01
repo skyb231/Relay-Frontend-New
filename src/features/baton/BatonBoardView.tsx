@@ -4,7 +4,7 @@ import {
   canAccessBatonBoard,
   canShowBatonBoardActions,
 } from '../../roles'
-import { useAuthSession } from '../../app/AuthSessionProvider'
+import { useAuthSession } from '../../app/useAuthSession'
 import { ROUTES } from '../../app/routes'
 import { pageBackButtonClass } from '../../components/navigation/PageBackNav'
 import { Select } from '../../components/ui/Select'
@@ -14,6 +14,7 @@ import { WorkforceSnapshot } from './WorkforceSnapshot'
 import { useBatonBoardData } from './useBatonBoardData'
 import { advanceBatonStatus } from './workflow/advanceBatonStatus'
 import { shouldShowApproveHandoverColumn } from './workflow/visibilityRules'
+import { canShowTaskActions } from './model/policies'
 
 export function BatonBoardView() {
   const { user } = useAuthSession()
@@ -59,7 +60,8 @@ export function BatonBoardView() {
     }
   }
 
-  const showBoardActionsForTask = (task: BatonTask) => canShowBatonBoardActions(user, task)
+  const showBoardActionsForTask = (task: BatonTask) =>
+    canShowBatonBoardActions(user, task) && canShowTaskActions(user, task)
 
   const showApproveHandoverColumn = useMemo(() => {
     return shouldShowApproveHandoverColumn({

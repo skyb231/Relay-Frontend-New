@@ -42,7 +42,6 @@ export type RelayDataSource = {
     }>,
   ) => Promise<BatonTaskDetail>
   getTeamDetail: (id: string) => Promise<TeamDetail>
-  /** Team members for workforce UI; falls back to empty if API has no roster route. */
   getTeamRoster: (teamId: string) => Promise<TeamRosterMember[]>
   getPerson: (personId: number) => Promise<TeamRosterMember>
 }

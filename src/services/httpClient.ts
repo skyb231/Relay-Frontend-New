@@ -10,6 +10,7 @@ function extractErrorMessage(bodyText: string, status: number): string {
   const trimmed = bodyText.trim()
   if (!trimmed) return `Request failed: ${status}`
   try {
+    // Convert backend validation payloads into user-facing error text.
     const parsed = JSON.parse(trimmed) as { detail?: unknown; message?: unknown }
     if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
       const first = parsed.detail[0] as { msg?: unknown; loc?: unknown }
@@ -21,12 +22,10 @@ function extractErrorMessage(bodyText: string, status: number): string {
     if (typeof parsed.detail === 'string' && parsed.detail.trim()) return parsed.detail.trim()
     if (typeof parsed.message === 'string' && parsed.message.trim()) return parsed.message.trim()
   } catch {
-    // Non-JSON error body; fall through and use raw text.
+    return trimmed
   }
   return trimmed
 }
-
-/** Many APIs return `{ "data": [...] }` instead of a raw array — normalize for list endpoints. */
 export function coerceJsonArray<T>(body: unknown, contextPath: string): T[] {
   if (Array.isArray(body)) return body as T[]
   if (body && typeof body === 'object') {
@@ -75,7 +74,6 @@ export async function httpRequest<T>({ path, headers, ...options }: HttpOptions)
   }
 }
 
-/** GET endpoints that must return a JSON array (after optional wrapper unwrap). */
 export async function httpRequestList<T>({ path, headers, ...init }: HttpOptions): Promise<T[]> {
   let response: Response
   try {
@@ -101,6 +99,7 @@ export async function httpRequestList<T>({ path, headers, ...init }: HttpOptions
 
   let parsed: unknown
   try {
+    // List endpoints must stay consumable even when wrapped in API envelopes.
     parsed = JSON.parse(text)
   } catch {
     throw new Error(

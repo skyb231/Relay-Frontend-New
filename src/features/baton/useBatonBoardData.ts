@@ -5,6 +5,7 @@ import { relayService } from '@/services/relayService'
 import { normalizeRole } from '@/roles'
 import type { WorkforcePerson } from '@/features/baton/WorkforceSnapshot'
 import { isSuccessorLinkedHandoverTask } from './baton.constants'
+import { isSelectedTeamLead, shouldIncludeTaskForOwnerFilter } from './model/visibility'
 
 type ProjectOption = {
   projectId: number
@@ -57,7 +58,6 @@ function buildWorkforce(args: {
       inOffice: member.in_office,
     }))
   } else {
-    // Avoid repeated linear scans while building fallback rows.
     const taskByOwner = new Map<number, BatonTask>()
     teamTasks.forEach((task) => {
       if (!taskByOwner.has(task.ownerId)) taskByOwner.set(task.ownerId, task)
@@ -101,28 +101,28 @@ function buildVisibleTasks(args: {
   userId: number | null
 }): BatonTask[] {
   const { teamTasks, projectFilter, ownerFilter, personInOffice, roster, role, userId } = args
-  const selectedIsSelfTeamLead =
-    ownerFilter != null && userId != null && Number(ownerFilter) === Number(userId) && role === 'team_lead'
-  const selectedIsTeamLead =
-    selectedIsSelfTeamLead ||
-    (ownerFilter != null &&
-      normalizeRole(roster.find((member) => member.id === ownerFilter)?.role ?? '') === 'team_lead')
+  const selectedIsTeamLead = isSelectedTeamLead({ ownerFilter, roster, role, userId })
 
   return teamTasks.filter((task) => {
     if (projectFilter !== null && task.projectId !== projectFilter) return false
     if (ownerFilter === null) return true
 
-    const isDone = task.workflowStatus === 'Done' || task.status === 'Done'
-    if (isDone && Number(task.ownerId) !== Number(ownerFilter)) return false
-
-    if (selectedIsTeamLead && task.status === 'Approve handover') {
-      return true
+    const successorMatchesFilter = isSuccessorLinkedHandoverTask(task, Number(ownerFilter))
+    if (!personInOffice) {
+      return shouldIncludeTaskForOwnerFilter({
+        task,
+        ownerFilter,
+        selectedIsTeamLead,
+        successorMatchesFilter,
+      })
     }
 
-    const successorMatchesFilter = isSuccessorLinkedHandoverTask(task, Number(ownerFilter))
-    if (!personInOffice) return Number(task.ownerId) === Number(ownerFilter) || successorMatchesFilter
-
-    return Number(task.ownerId) === Number(ownerFilter) || successorMatchesFilter
+    return shouldIncludeTaskForOwnerFilter({
+      task,
+      ownerFilter,
+      selectedIsTeamLead,
+      successorMatchesFilter,
+    })
   })
 }
 

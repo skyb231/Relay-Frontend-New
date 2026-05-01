@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { normalizeRole, showBatonBoardNav, showResilienceDashboardNav } from '../../roles'
 import { ROUTES } from '../../app/routes'
-import { useAuthSession } from '../../app/AuthSessionProvider'
+import { useAuthSession } from '../../app/useAuthSession'
 import { ProfileMenu } from './ProfileMenu'
 
 export function Navbar() {

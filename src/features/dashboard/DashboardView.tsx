@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { canAccessResilienceDashboard, normalizeRole } from '../../roles'
-import { useAuthSession } from '../../app/AuthSessionProvider'
+import { useAuthSession } from '../../app/useAuthSession'
 import { ROUTES } from '../../app/routes'
 import { Select } from '../../components/ui/Select'
 import { DashboardSummaryCards } from './DashboardSummaryCards'

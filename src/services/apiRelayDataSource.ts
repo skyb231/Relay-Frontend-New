@@ -9,7 +9,12 @@ import type {
   TeamRisk,
   TeamRosterMember,
 } from '../types/domain'
-import { BATON_STATUS } from '@/features/baton/batonStatus'
+import {
+  mapStatus,
+  normalizedRiskLabelFromApi,
+  reconstructionRiskTone,
+  toneFromRiskLabel,
+} from '@/services/api/mappers/batonStatusMappers'
 
 type BatonApi = {
   id: number | string
@@ -32,7 +37,6 @@ type BatonApi = {
   branch_name: string | null
   daily_logs: Array<{ date?: string; note?: string; author?: string }>
   additional_resources: Array<{ type?: string; title?: string; url?: string }>
-  /** API may return or accept newline-separated strings instead of JSON arrays. */
   dependencies?: string | string[] | null
   related_systems?: string | string[] | null
   troubleshooting_notes?: string | null
@@ -84,7 +88,6 @@ function normalizeNumericArray(value: unknown): number[] {
     .filter((item): item is number => item != null)
 }
 
-/** Integer minutes from API show as "N minutes"; other strings (e.g. ranges) pass through. */
 function formatReconstructionTimeDisplay(raw: unknown): string {
   if (raw == null) return ''
   if (typeof raw === 'number' && Number.isFinite(raw)) return `${raw} minutes`
@@ -102,44 +105,7 @@ function hasRelatedSystemsContent(baton: BatonApi): boolean {
   )
 }
 
-function normalizeBatonStatus(status: string | undefined | null): string {
-  return (status ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/-/g, '_')
-    .replace(/\s+/g, '_')
-}
 
-function mapStatus(status: string): BatonTask['status'] {
-  const s = normalizeBatonStatus(status)
-  if (s === BATON_STATUS.HANDOVER_PENDING_APPROVAL) return 'Approve handover'
-  if (s === BATON_STATUS.AWAITING_HANDOVER) return 'Awaiting Handover'
-  if (s === BATON_STATUS.IN_PROGRESS) return 'In Progress'
-  if (s === BATON_STATUS.DONE || s === 'completed' || s === 'complete') return 'Done'
-  if (s === BATON_STATUS.ENRICH_TICKET || s === 'enrich') return 'Enrich Baton'
-  return 'Waiting to Be Accepted'
-}
-
-function toneFromRiskLabel(label: string): RiskTone {
-  const normalized = label.trim().toLowerCase()
-  if (normalized === 'low risk') return 'green'
-  if (normalized === 'medium risk') return 'amber'
-  return 'red'
-}
-
-function normalizedRiskLabelFromApi(raw: unknown): string {
-  const normalized = normalizeText(raw).toLowerCase()
-  if (normalized === 'low risk') return 'Low Risk'
-  if (normalized === 'medium risk') return 'Medium Risk'
-  if (normalized === 'high risk' || normalized === 'critical risk') return 'High Risk'
-  return 'Medium Risk'
-}
-
-/**
- * Matches backend `determine_lifecycle_stage`: `baton` when description + successors exist;
- * `imported_ticket` otherwise. If `lifecycle_stage` is omitted, infer from fields.
- * Related systems must be documented or the baton stays in Enrich.
- */
 function isBatonPromotedPastEnrich(baton: BatonApi): boolean {
   const stage = (baton.lifecycle_stage ?? '').trim().toLowerCase()
   if (stage === 'imported_ticket') return false
@@ -162,34 +128,7 @@ function effectiveBatonColumn(args: {
   return workflow
 }
 
-/** Visual risk level for estimated reconstruction time: green = favorable, orange = medium, red = severe. */
-function reconstructionRiskTone(raw: string | null | undefined): RiskTone {
-  const v = normalizeText(raw).toLowerCase()
-  if (!v || v === '—' || v === 'not set' || v === 'n/a' || v === 'unknown') return 'orange'
-  if (/\b(week|month|year)s?\b|\b\d+\s*days?\b/i.test(v)) return 'red'
-  const range = v.match(/(\d+)\s*[-–]\s*(\d+)/)
-  if (range) {
-    const hi = Math.max(Number(range[1]), Number(range[2]))
-    if (hi <= 4) return 'green'
-    if (hi <= 24) return 'orange'
-    return 'red'
-  }
-  const single = v.match(/^(\d+)\s*h/)
-  if (single) {
-    const h = Number(single[1])
-    if (h <= 4) return 'green'
-    if (h <= 24) return 'orange'
-    return 'red'
-  }
-  if (/\b(low|minutes?|quick|short)\b/i.test(v)) return 'green'
-  if (/\b(high|long|slow|severe)\b/i.test(v)) return 'red'
-  return 'orange'
-}
 
-/**
- * FastAPI often types `dependencies` / `related_systems` as `str`; sending `[]` fails validation.
- * Accept UI arrays and serialize to newline-separated strings (empty → "").
- */
 function normalizeBatonPatchBody(payload: Record<string, unknown>): Record<string, unknown> {
   const out = { ...payload }
   if (Array.isArray(out.dependencies)) {
@@ -211,7 +150,6 @@ function normalizeBatonPatchBody(payload: Record<string, unknown>): Record<strin
   return out
 }
 
-/** GET may return the baton object or a wrapper (`data`, `baton`). PATCH often returns an empty body — caller must GET after update. */
 function unwrapBatonResponse(raw: unknown): BatonApi | null {
   if (raw == null || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
@@ -470,7 +408,7 @@ async function withResolvedSuccessorsFromPeople(tasks: BatonTask[]): Promise<Bat
         const name = person.name?.trim()
         if (name) namesById.set(id, name)
       } catch {
-        // Keep fallback behavior if person lookup fails.
+        void id
       }
     }),
   )
@@ -529,7 +467,6 @@ function ownerHistoryFromLogs(
   ].join('\n')
 }
 
-/** Short successor line: one is good; two or more is excellent. */
 function successorCoverageLabel(successorCount: number): string {
   if (successorCount <= 0) return 'None'
   if (successorCount === 1) return 'Good'
@@ -568,13 +505,18 @@ function mapBatonDetail(baton: BatonApi): BatonTaskDetail {
   const sanitizedBranch = normalizeText(baton.branch_name)
   const sanitizedContext = normalizeText(baton.detailed_context)
   const sanitizedDescription = normalizeText(baton.description)
+  const effectiveDetailStatus = effectiveBatonColumn({
+    workflow: mappedTask.workflowStatus,
+    documentationComplete: mappedTask.documentationComplete,
+    ownerInOffice: mappedTask.ownerInOffice,
+  })
   return {
     id: mappedTask.id,
     ref: mappedTask.ref,
     projectId: baton.project_id,
     teamId: baton.team_id ?? null,
     title: mappedTask.title,
-    status: mappedTask.workflowStatus,
+    status: effectiveDetailStatus,
     tone: resolvedRiskTone,
     riskLabel: resolvedRiskLabel,
     riskScore: apiRiskScore ?? 0,
@@ -666,7 +608,6 @@ function deliveryRiskTone(risk: string): RiskTone {
   return 'green'
 }
 
-/** Same formula as team detail `% Handover ready` (from overall risk score). */
 function handoverReadyPercentFromRiskScore(overallRiskScore: number): string {
   return `${Math.max(0, 100 - Math.round(overallRiskScore * 0.7))}%`
 }

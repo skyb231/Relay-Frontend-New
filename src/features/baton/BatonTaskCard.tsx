@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isTeamLeadForBaton } from '../../roles'
-import { useAuthSession } from '../../app/AuthSessionProvider'
+import { useAuthSession } from '../../app/useAuthSession'
 import { ROUTES } from '../../app/routes'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import type { BatonTask } from '../../types/domain'
 import type { BatonColumn, BoardViewMode } from './baton.constants'
+import { isSuccessorEligibleForAccept } from './model/policies'
 
 type BatonTaskCardProps = {
   task: BatonTask
@@ -36,12 +37,8 @@ export function BatonTaskCard({
   const uid = user?.user_id
   const teamLead = isTeamLeadForBaton(user, task)
 
-  const successorCanAccept =
-    uid != null &&
-    ((task.handoverTargetId != null && Number(task.handoverTargetId) === Number(uid)) ||
-      (task.successorIds[0] != null && Number(task.successorIds[0]) === Number(uid)))
+  const successorCanAccept = isSuccessorEligibleForAccept(uid ?? null, task)
 
-  /** Team view: merged Awaiting Handover; individual: Waiting to be accepted (successor lens). */
   const inAcceptColumn =
     (boardViewMode === 'team' && column === 'Awaiting Handover') ||
     (boardViewMode === 'individual' && column === 'Waiting to Be Accepted')

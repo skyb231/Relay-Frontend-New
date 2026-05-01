@@ -1,5 +1,6 @@
 import { cn } from './cn'
 import type { ReactElement } from 'react'
+import { insightCardFrameClassName } from './insightCardStyles'
 
 export type InsightVariant = 'success' | 'warning' | 'danger' | 'neutral'
 
@@ -50,7 +51,6 @@ function IconWarning({ className }: { className?: string }) {
   )
 }
 
-/** Bell — used as a soft “alarm” cue for poor metrics */
 function IconAlarm({ className }: { className?: string }) {
   return (
     <svg
@@ -91,24 +91,20 @@ function IconNeutral({ className }: { className?: string }) {
   )
 }
 
-const shell: Record<InsightVariant, { ring: string; iconBg: string; iconInk: string }> = {
+const shell: Record<InsightVariant, { iconBg: string; iconInk: string }> = {
   success: {
-    ring: 'ring-emerald-100/90',
     iconBg: 'bg-emerald-100/80',
     iconInk: 'text-emerald-700',
   },
   warning: {
-    ring: 'ring-amber-100/90',
     iconBg: 'bg-amber-100/80',
     iconInk: 'text-amber-800',
   },
   danger: {
-    ring: 'ring-rose-100/90',
     iconBg: 'bg-rose-100/85',
     iconInk: 'text-rose-700',
   },
   neutral: {
-    ring: 'ring-slate-200/80',
     iconBg: 'bg-slate-100/90',
     iconInk: 'text-slate-600',
   },
@@ -121,18 +117,6 @@ const iconByVariant: Record<InsightVariant, InsightIconComponent> = {
   neutral: IconNeutral,
 }
 
-/** Outer frame classes shared with dashboard / team risk metric cards. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function insightCardFrameClassName(variant: InsightVariant, className?: string) {
-  const s = shell[variant]
-  return cn(
-    'flex gap-4 rounded-xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-inset',
-    s.ring,
-    className,
-  )
-}
-
-/** Pastel icon tile (check / warning / bell / neutral) for a given variant. */
 export function InsightIconTile({ variant, className }: { variant: InsightVariant; className?: string }) {
   const s = shell[variant]
   const Icon = iconByVariant[variant]

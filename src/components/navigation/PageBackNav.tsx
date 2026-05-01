@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-/** Shared control for all in-page “back” actions (no divider line under the nav). */
 export const pageBackButtonClass =
   'inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-[var(--relay-navy)] shadow-sm hover:bg-slate-50'
 
